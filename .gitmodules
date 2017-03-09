@@ -1,0 +1,6 @@
+[submodule "build"]
+	path = depends/build
+	url = https://github.com/djp952/build.git
+[submodule "kodi-addon-dev-kit"]
+	path = depends/kodi-addon-dev-kit
+	url = https://github.com/djp952/external-kodi-addon-dev-kit.git

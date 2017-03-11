@@ -40,6 +40,7 @@
 #include "addoncallbacks.h"
 #include "pvrcallbacks.h"
 #include "scheduler.h"
+#include "scalar_condition.h"
 #include "string_exception.h"
 
 #pragma warning(push, 4)				// Enable maximum compiler warnings
@@ -65,7 +66,7 @@ template<typename... _args> static void log_notice(_args&&... args);
 
 // Scheduled Tasks
 //
-static void discover_recordings_task(void);
+static void discover_recordings_task(const scalar_condition<bool>& cancel);
 
 //---------------------------------------------------------------------------
 // TYPE DECLARATIONS
@@ -138,11 +139,14 @@ std::mutex g_settings_lock;
 // discover_recordings_task
 //
 // Scheduled task implementation to discover the storage recordings
-static void discover_recordings_task(void)
+static void discover_recordings_task(const scalar_condition<bool>& cancel)
 {
 	// todo: implement me
 	assert(g_addon && g_pvr);
 	log_notice(__func__, ": initiated windows media center recording discovery");
+
+	if(cancel.wait_until_equals(true, 30000)) log_notice(__func__, "task cancelled");
+	else log_notice(__func__, "task completed");
 }
 
 // get_filetime

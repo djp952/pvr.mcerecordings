@@ -67,7 +67,7 @@ scheduler::~scheduler()
 //	due		- system_time at which the task should be executed
 //	task	- task to be executed
 
-void scheduler::add(std::chrono::time_point<std::chrono::system_clock> due, std::function<void(void)> task)
+void scheduler::add(std::chrono::time_point<std::chrono::system_clock> due, std::function<void(const scalar_condition<bool>&)> task)
 {
 	std::unique_lock<std::mutex> lock(m_queue_lock);
 
@@ -174,7 +174,7 @@ void scheduler::start(void)
 				lock.unlock();
 
 				// Invoke the task and dispatch any exceptions that leak out to the handler
-				try { functor(); }
+				try { functor(m_stop); }
 				catch(std::exception& ex) { if(m_handler) m_handler(ex); }
 				catch(...) { if(m_handler) m_handler(string_exception("unhandled exception during task execution")); }
 			}

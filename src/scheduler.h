@@ -62,7 +62,7 @@ public:
 	// add
 	//
 	// Adds a task to the scheduler queue
-	void add(std::chrono::time_point<std::chrono::system_clock> due, std::function<void(void)> task);
+	void add(std::chrono::time_point<std::chrono::system_clock> due, std::function<void(const scalar_condition<bool>&)> task);
 
 	// clear
 	//
@@ -102,7 +102,7 @@ private:
 	// queueitem_t
 	//
 	// queue<> element type
-	using queueitem_t = std::pair<std::chrono::time_point<std::chrono::system_clock>, std::function<void(void)>>;
+	using queueitem_t = std::pair<std::chrono::time_point<std::chrono::system_clock>, std::function<void(const scalar_condition<bool>&)>>;
 
 	// queueitem_greater_t
 	//

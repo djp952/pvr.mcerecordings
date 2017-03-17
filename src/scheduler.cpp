@@ -67,7 +67,7 @@ scheduler::~scheduler()
 //	due		- system_time at which the task should be executed
 //	task	- task to be executed
 
-void scheduler::add(std::chrono::time_point<std::chrono::system_clock> due, std::function<void(const scalar_condition<bool>&)> task)
+void scheduler::add(std::chrono::time_point<std::chrono::system_clock> due, std::function<void(scalar_condition<bool> const&)> task)
 {
 	std::unique_lock<std::mutex> lock(m_queue_lock);
 
@@ -114,7 +114,7 @@ void scheduler::pause(void)
 //
 //	task		- Task to be removed from the queue
 
-void scheduler::remove(std::function<void(void)> task)
+void scheduler::remove(std::function<void(scalar_condition<bool> const&)> task)
 {
 	queue_t			newqueue;			// The new queue_t instance
 

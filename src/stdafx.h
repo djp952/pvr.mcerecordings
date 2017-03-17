@@ -32,7 +32,10 @@
 #define	_WIN32_IE		_WIN32_IE_IE80
 
 #define NOMINMAX					// Disable min()/max() macros
-#define _USE_32BIT_TIME_T			// time_t has to be 32 bit for Kodi
+
+#ifndef _WIN64
+#define _USE_32BIT_TIME_T			// time_t has to be 32bit with 32bit Kodi
+#endif
 
 #include <windows.h>				// Include main Windows declarations
 #include <Shlwapi.h>				// Include shell utility functions
@@ -57,6 +60,14 @@
 #endif // _WINDOWS
 
 #include <xbmc_addon_dll.h>			// Include general addon declarations
+
+//---------------------------------------------------------------------------
+// SQLite Declarations
+
+#define SQLITE_THREADSAFE 2			// SQLITE_CONFIG_MULTITHREAD
+#define SQLITE_TEMP_STORE 3			// Enable in-memory temp storage
+
+#include <sqlite3.h>				// Include SQLite declarations
 
 //---------------------------------------------------------------------------
 

@@ -22,22 +22,17 @@
 
 #include "stdafx.h"
 
-// todo: clean these up
-#include <algorithm>
 #include <chrono>
-#include <functional>
 #include <memory>
-#include <mutex>
-#include <queue>
 #include <string>
 #include <sstream>
-#include <type_traits>
 #include <vector>
 
 #include <version.h>
 #include <xbmc_pvr_dll.h>
 
 #include "addoncallbacks.h"
+#include "database.h"
 #include "pvrcallbacks.h"
 #include "scheduler.h"
 #include "scalar_condition.h"
@@ -112,6 +107,11 @@ static const PVR_ADDON_CAPABILITIES g_capabilities = {
 	false,		// bSupportsRecordingEdl
 };
 
+// g_connpool
+//
+// Global SQLite database connection pool instance
+static std::shared_ptr<connectionpool> g_connpool;
+
 // g_pvr
 //
 // Kodi PVR add-on callback implementation
@@ -138,87 +138,39 @@ std::mutex g_settings_lock;
 
 // discover_recordings_task
 //
-// Scheduled task implementation to discover the storage recordings
+// Scheduled task implementation to discover the recordings
 static void discover_recordings_task(const scalar_condition<bool>& cancel)
 {
-	// todo: implement me
+	bool		changed = false;			// Flag if the discovery data changed
+
 	assert(g_addon && g_pvr);
 	log_notice(__func__, ": initiated windows media center recording discovery");
 
-	if(cancel.wait_until_equals(true, 30000)) log_notice(__func__, "task cancelled");
-	else log_notice(__func__, "task completed");
-}
+	// Grab copies of the required setting(s) up front
+	std::unique_lock<std::mutex> settings_lock(g_settings_lock);
+	std::string recordedtv_folder = g_settings.recordedtv_folder;
+	settings_lock.unlock();
 
-// get_filetime
-//
-// Retrieves a VT_FILETIME property from an IPropertyStore instance
-static FILETIME get_filetime(IPropertyStore* store, PROPERTYKEY const& key)
-{
-	PROPVARIANT				value;				// PROPVARIANT value
-	FILETIME				result{0, 0};		// Result from this function
+	try {
 
-	assert(store);
-	PropVariantInit(&value);
+		// Pull a database connection out from the connection pool
+		connectionpool::handle dbhandle(g_connpool);
 
-	// Attempt to retrieve the value from the property store and set the result if successful
-	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_FILETIME)) result = value.filetime;
+		// Discover the recordings available in the recordedtv_folder
+		discover_recordings(dbhandle, g_addon.get(), recordedtv_folder.c_str(), cancel, changed);
+		
+		if(changed) {
 
-	PropVariantClear(&value);
-	return result;
-}
+			// Changes in the recording data affects just the PVR recordings
+			log_notice(__func__, ": recording discovery data changed -- trigger recording update");
+			g_pvr->TriggerRecordingUpdate();
+		}
 
-// get_lpwstr
-//
-// Retrieves a VT_LPWSTR property from an IPropertyStore instance
-static std::wstring get_lpwstr(IPropertyStore* store, PROPERTYKEY const& key)
-{
-	PROPVARIANT				value;			// PROPVARIANT value
-	std::wstring			result;			// Result from this function
+		log_notice(__func__, ": windows media center recording discovery task completed");
+	}
 
-	assert(store);
-	PropVariantInit(&value);
-
-	// Attempt to retrieve the value from the property store and set the result if successful
-	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_LPWSTR)) result = std::wstring(value.pwszVal);
-
-	PropVariantClear(&value);
-	return result;
-}
-
-// get_ui4
-//
-// Retrieves a VT_UI4 property from an IPropertyStore instance
-static uint32_t get_ui4(IPropertyStore* store, PROPERTYKEY const& key)
-{
-	PROPVARIANT				value;				// PROPVARIANT value
-	uint32_t				result = 0;			// Result from this function
-
-	assert(store);
-	PropVariantInit(&value);
-
-	// Attempt to retrieve the value from the property store and set the result if successful
-	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_UI4)) result = value.ulVal;
-
-	PropVariantClear(&value);
-	return result;
-}
-
-// get_ui8
-//
-// Retrieves a VT_UI8 property from an IPropertyStore instance
-static uint64_t get_ui8(IPropertyStore* store, PROPERTYKEY const& key)
-{
-	PROPVARIANT				value;				// PROPVARIANT value
-	uint64_t				result = 0;			// Result from this function
-
-	assert(store);
-	PropVariantInit(&value);
-
-	// Attempt to retrieve the value from the property store and set the result if successful
-	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_UI8)) result = value.uhVal.QuadPart;
-
-	PropVariantClear(&value);
-	return result;
+	catch(std::exception& ex) { handle_stdexception(__func__, ex); }
+	catch(...) { handle_generalexception(__func__); }
 }
 
 // handle_generalexception
@@ -313,42 +265,6 @@ static void log_notice(_args&&... args)
 	log_message(addoncallbacks::addon_log_t::LOG_NOTICE, std::forward<_args>(args)...);
 }
 
-// smb_to_unc
-//
-// Converts an smb:// scheme path into a UNC path
-static std::string smb_to_unc(char const* smb)
-{
-	if(smb == nullptr) return std::string();
-
-	// Check if this is an smb:// path
-	if(_strnicmp(smb, "smb://", 6) == 0) {
-
-		// Repalce smb:// with \\ and replace slashes with backslashes
-		std::string unc = std::string("\\\\") + &smb[6];
-		std::replace(unc.begin(), unc.end(), '/', '\\'); 
-		return unc;
-	}
-
-	else return std::string(smb);
-}
-
-// to_wstring
-//
-// Converts a UTF-8 character string into a UTF-16 std::wstring
-static std::wstring to_wstring(char const* psz, int cch)
-{
-	if(psz == nullptr) return std::wstring();
-
-	// Create a buffer big enough to hold the converted string data and convert it
-	int buffercch = MultiByteToWideChar(CP_UTF8, 0, psz, cch, nullptr, 0);
-	auto buffer = std::make_unique<wchar_t[]>(buffercch);
-	MultiByteToWideChar(CP_UTF8, 0, psz, cch, buffer.get(), buffercch);
-
-	// Construct an std::wstring around the converted character data, watch for the API
-	// returning the length including the NULL character when -1 was provided as length
-	return std::wstring(buffer.get(), (cch == -1) ? buffercch - 1 : buffercch);
-}
-
 //---------------------------------------------------------------------------
 // KODI ADDON ENTRY POINTS
 //---------------------------------------------------------------------------
@@ -363,9 +279,14 @@ static std::wstring to_wstring(char const* psz, int cch)
 //	handle			- Kodi add-on handle
 //	props			- Add-on specific properties structure (PVR_PROPERTIES)
 
-ADDON_STATUS ADDON_Create(void* handle, void* /*props*/)
+ADDON_STATUS ADDON_Create(void* handle, void* props)
 {
-	if(handle == nullptr) return ADDON_STATUS::ADDON_STATUS_PERMANENT_FAILURE;
+	char			strvalue[1024] = { '\0' };				// Setting value 
+
+	if((handle == nullptr) || (props == nullptr)) return ADDON_STATUS::ADDON_STATUS_PERMANENT_FAILURE;
+
+	// Pull out a pointer to the PVR_PROPERTIES
+	PVR_PROPERTIES* pvrprops = reinterpret_cast<PVR_PROPERTIES*>(props);
 
 	try {
 		
@@ -377,20 +298,37 @@ ADDON_STATUS ADDON_Create(void* handle, void* /*props*/)
 
 		try { 
 
-			//
-			// todo: load settings here
-			//
+			// The user data path doesn't always exist when an addon has been installed
+			if(!g_addon->DirectoryExists(pvrprops->strUserPath)) {
+
+				log_notice(__func__, ": user data directory ", pvrprops->strUserPath, " does not exist");
+				if(!g_addon->CreateDirectory(pvrprops->strUserPath)) throw string_exception("unable to create addon user data directory");
+				log_notice(__func__, ": user data directory ", pvrprops->strUserPath, " created");
+			}
+
+			// Load the general settings
+			if(g_addon->GetSetting("recordedtv_folder", strvalue)) g_settings.recordedtv_folder = strvalue;
 
 			// Create the global pvrcallbacks instance
 			g_pvr = std::make_unique<pvrcallbacks>(handle); 
 		
 			try {
 
-				// Schedule the initial discovery run to execute as soon as possible
-				std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
-				g_scheduler.add(now + std::chrono::seconds(1), discover_recordings_task);
+				// Create the global database connection pool instance, the file name is based on the versionb
+				std::string databasefile = "file:///" + std::string(pvrprops->strUserPath) + "/mcerecordings-v" + VERSION_VERSION2_ANSI + ".db";
+				g_connpool = std::make_shared<connectionpool>(databasefile.c_str(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI);
 
-				g_scheduler.start();				// <--- Start the task scheduler
+				try {
+
+					// Schedule the initial discovery run to execute as soon as possible
+					std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+					g_scheduler.add(now + std::chrono::seconds(1), discover_recordings_task);
+
+					g_scheduler.start();				// <--- Start the task scheduler
+				}
+
+				// Clean up the database connection pool on exception
+				catch(...) { g_connpool.reset(); throw; }
 			}
 			
 			// Clean up the pvrcallbacks instance on exception
@@ -444,6 +382,7 @@ void ADDON_Destroy(void)
 	g_scheduler.stop();
 
 	// Destroy all the dynamically created objects
+	g_connpool.reset();
 	g_pvr.reset(nullptr);
 	g_addon.reset(nullptr);
 }
@@ -502,9 +441,25 @@ unsigned int ADDON_GetSettings(ADDON_StructSetting*** /*settings*/)
 
 ADDON_STATUS ADDON_SetSetting(char const* name, void const* value)
 {
-	// todo: implement me
-	UNREFERENCED_PARAMETER(name);
-	UNREFERENCED_PARAMETER(value);
+	std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+	std::unique_lock<std::mutex> settings_lock(g_settings_lock);
+
+	// recordedtv_folder
+	//
+	if(strcmp(name, "recordedtv_folder") == 0) {
+
+		if(strcmp(g_settings.recordedtv_folder.c_str(), reinterpret_cast<char const*>(value)) != 0) {
+
+			g_settings.recordedtv_folder = reinterpret_cast<char const*>(value);
+			log_notice(__func__, ": setting recordedtv_folder changed to ", g_settings.recordedtv_folder.c_str());
+
+			// Reschedule the discovery task to run as soon as possible
+			g_scheduler.remove(discover_recordings_task);
+			g_scheduler.add(now + std::chrono::seconds(1), discover_recordings_task);
+			log_notice(__func__, ": recorded tv folder changed -- scheduling discovery task to initiate in 1 second");
+		}
+	}
+
 	return ADDON_STATUS_OK;
 }
 
@@ -857,8 +812,9 @@ int GetRecordingsAmount(bool deleted)
 {
 	if(deleted) return 0;			// Deleted recordings aren't supported
 
-	// todo: implement me
-	return 0;
+	try { return get_recording_count(connectionpool::handle(g_connpool)); }
+	catch(std::exception& ex) { return handle_stdexception(__func__, ex, -1); }
+	catch(...) { return handle_generalexception(__func__, -1); }
 }
 
 //---------------------------------------------------------------------------
@@ -880,7 +836,69 @@ PVR_ERROR GetRecordings(ADDON_HANDLE handle, bool deleted)
 	// The PVR doesn't support tracking deleted recordings
 	if(deleted) return PVR_ERROR::PVR_ERROR_NO_ERROR;
 
-	// todo: implement me
+	try {
+
+		// Pull a database connection out from the connection pool
+		connectionpool::handle dbhandle(g_connpool);
+
+		// Enumerate all of the recordings in the database
+		enumerate_recordings(dbhandle, [&](struct recording const& item) -> void {
+
+			PVR_RECORDING recording;							// PVR_RECORDING to be transferred to Kodi
+			memset(&recording, 0, sizeof(PVR_RECORDING));		// Initialize the structure
+
+			// strRecordingId (required)
+			if(item.recordingid == nullptr) return;
+			snprintf(recording.strRecordingId, std::extent<decltype(recording.strRecordingId)>::value, "%s", item.recordingid);
+			
+			// strTitle (required)
+			if(item.title == nullptr) return;
+			snprintf(recording.strTitle, std::extent<decltype(recording.strTitle)>::value, "%s", item.title);
+
+			// strEpisodeName
+			if(item.episodename != nullptr) snprintf(recording.strEpisodeName, std::extent<decltype(recording.strEpisodeName)>::value, "%s", item.episodename);
+
+			// iSeriesNumber
+			recording.iSeriesNumber = item.seriesnumber;
+			 
+			// iEpisodeNumber
+			recording.iEpisodeNumber = item.episodenumber;
+
+			// iYear
+			recording.iYear = item.year;
+
+			// strStreamURL (required)
+			if(item.streamurl == nullptr) return;
+			snprintf(recording.strStreamURL, std::extent<decltype(recording.strStreamURL)>::value, "%s", item.streamurl);
+
+			// strDirectory
+			if(item.title != nullptr) snprintf(recording.strDirectory, std::extent<decltype(recording.strDirectory)>::value, "%s", item.directory);
+
+			// strPlot
+			if(item.plot != nullptr) snprintf(recording.strPlot, std::extent<decltype(recording.strPlot)>::value, "%s", item.plot);
+
+			// strChannelName
+			if(item.channelname != nullptr) snprintf(recording.strChannelName, std::extent<decltype(recording.strChannelName)>::value, "%s", item.channelname);
+
+			// recordingTime
+			recording.recordingTime = item.recordingtime;
+
+			// iDuration
+			recording.iDuration = item.duration;
+
+			// iChannelUid
+			recording.iChannelUid = PVR_CHANNEL_INVALID_UID;
+
+			// channelType
+			recording.channelType = PVR_RECORDING_CHANNEL_TYPE_TV;
+
+			g_pvr->TransferRecordingEntry(handle, &recording);
+		});
+	}
+	
+	catch(std::exception& ex) { return handle_stdexception(__func__, ex, PVR_ERROR::PVR_ERROR_FAILED); }
+	catch(...) { return handle_generalexception(__func__, PVR_ERROR::PVR_ERROR_FAILED); }
+
 	return PVR_ERROR::PVR_ERROR_NO_ERROR;
 }
 
@@ -895,9 +913,13 @@ PVR_ERROR GetRecordings(ADDON_HANDLE handle, bool deleted)
 
 PVR_ERROR DeleteRecording(PVR_RECORDING const& recording)
 {
-	// todo: implement me
-	UNREFERENCED_PARAMETER(recording);
-	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
+	assert(g_addon);
+
+	try { delete_recording(connectionpool::handle(g_connpool), g_addon.get(), recording.strRecordingId); }
+	catch(std::exception& ex) { return handle_stdexception(__func__, ex, PVR_ERROR::PVR_ERROR_FAILED); }
+	catch(...) { return handle_generalexception(__func__, PVR_ERROR::PVR_ERROR_FAILED); }
+
+	return PVR_ERROR::PVR_ERROR_NO_ERROR;
 }
 
 //---------------------------------------------------------------------------

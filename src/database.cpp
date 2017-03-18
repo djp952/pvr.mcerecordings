@@ -46,6 +46,118 @@
 #endif
 
 //
+// HELPER FUNCTIONS
+//
+
+// get_filetime
+//
+// Retrieves a VT_FILETIME property from an IPropertyStore instance
+static FILETIME get_filetime(IPropertyStore* store, PROPERTYKEY const& key)
+{
+	PROPVARIANT				value;				// PROPVARIANT value
+	FILETIME				result{0, 0};		// Result from this function
+
+	assert(store);
+	PropVariantInit(&value);
+
+	// Attempt to retrieve the value from the property store and set the result if successful
+	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_FILETIME)) result = value.filetime;
+
+	PropVariantClear(&value);
+	return result;
+}
+
+// get_lpwstr
+//
+// Retrieves a VT_LPWSTR property from an IPropertyStore instance
+static std::wstring get_lpwstr(IPropertyStore* store, PROPERTYKEY const& key)
+{
+	PROPVARIANT				value;			// PROPVARIANT value
+	std::wstring			result;			// Result from this function
+
+	assert(store);
+	PropVariantInit(&value);
+
+	// Attempt to retrieve the value from the property store and set the result if successful
+	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_LPWSTR)) result = std::wstring(value.pwszVal);
+
+	PropVariantClear(&value);
+	return result;
+}
+
+// get_ui4
+//
+// Retrieves a VT_UI4 property from an IPropertyStore instance
+static uint32_t get_ui4(IPropertyStore* store, PROPERTYKEY const& key)
+{
+	PROPVARIANT				value;				// PROPVARIANT value
+	uint32_t				result = 0;			// Result from this function
+
+	assert(store);
+	PropVariantInit(&value);
+
+	// Attempt to retrieve the value from the property store and set the result if successful
+	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_UI4)) result = value.ulVal;
+
+	PropVariantClear(&value);
+	return result;
+}
+
+// get_ui8
+//
+// Retrieves a VT_UI8 property from an IPropertyStore instance
+static uint64_t get_ui8(IPropertyStore* store, PROPERTYKEY const& key)
+{
+	PROPVARIANT				value;				// PROPVARIANT value
+	uint64_t				result = 0;			// Result from this function
+
+	assert(store);
+	PropVariantInit(&value);
+
+	// Attempt to retrieve the value from the property store and set the result if successful
+	if(SUCCEEDED(store->GetValue(key, &value)) && (value.vt == VT_UI8)) result = value.uhVal.QuadPart;
+
+	PropVariantClear(&value);
+	return result;
+}
+
+// smb_to_unc
+//
+// Converts an smb:// scheme path into a UNC path
+static std::string smb_to_unc(char const* smb)
+{
+	if(smb == nullptr) return std::string();
+
+	// Check if this is an smb:// path
+	if(_strnicmp(smb, "smb://", 6) == 0) {
+
+		// Repalce smb:// with \\ and replace slashes with backslashes
+		std::string unc = std::string("\\\\") + &smb[6];
+		std::replace(unc.begin(), unc.end(), '/', '\\'); 
+		return unc;
+	}
+
+	else return std::string(smb);
+}
+
+// to_wstring
+//
+// Converts a UTF-8 character string into a UTF-16 std::wstring
+static std::wstring to_wstring(char const* psz, int cch)
+{
+	if(psz == nullptr) return std::wstring();
+
+	// Create a buffer big enough to hold the converted string data and convert it
+	int buffercch = MultiByteToWideChar(CP_UTF8, 0, psz, cch, nullptr, 0);
+	auto buffer = std::make_unique<wchar_t[]>(buffercch);
+	MultiByteToWideChar(CP_UTF8, 0, psz, cch, buffer.get(), buffercch);
+
+	// Construct an std::wstring around the converted character data, watch for the API
+	// returning the length including the NULL character when -1 was provided as length
+	return std::wstring(buffer.get(), (cch == -1) ? buffercch - 1 : buffercch);
+}
+
+//
 // CONNECTIONPOOL IMPLEMENTATION
 //
 
@@ -150,7 +262,7 @@ void close_database(sqlite3* instance)
 //	callbacks		- addoncallbacks instance
 //	recordingid		- Recording ID (CmdURL) of the item to delete
 
-void delete_recording(sqlite3* instance, addoncallbacks const& callbacks, char const* recordingid)
+void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char const* recordingid)
 {
 	UNREFERENCED_PARAMETER(callbacks);
 	UNREFERENCED_PARAMETER(recordingid);
@@ -167,12 +279,13 @@ void delete_recording(sqlite3* instance, addoncallbacks const& callbacks, char c
 //
 //	instance	- SQLite database instance
 //	callbacks	- addoncallbacks instance
+//	folder		- Location of the recorded TV files
 //	cancel		- Condition variable used to cancel the operation
 
-void discover_recordings(sqlite3* instance, addoncallbacks const& callbacks, scalar_condition<bool> const& cancel)
+void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel)
 {
 	bool ignored;
-	return discover_recordings(instance, callbacks, cancel, ignored);
+	return discover_recordings(instance, callbacks, folder, cancel, ignored);
 }
 
 //---------------------------------------------------------------------------
@@ -184,13 +297,15 @@ void discover_recordings(sqlite3* instance, addoncallbacks const& callbacks, sca
 //
 //	instance	- SQLite database instance
 //	callbacks	- addoncallbacks instance
+//	folder		- Location of the recorded TV files
 //	cancel		- Condition variable used to cancel the operation
 //	changed		- Flag indicating if the data has changed
 
-void discover_recordings(sqlite3* instance, addoncallbacks const& callbacks, scalar_condition<bool> const& cancel, bool& changed)
+void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed)
 {
 	UNREFERENCED_PARAMETER(callbacks);
 	UNREFERENCED_PARAMETER(cancel);
+	UNREFERENCED_PARAMETER(folder);
 	UNREFERENCED_PARAMETER(changed);
 
 	if(instance == nullptr) throw std::invalid_argument("instance");
@@ -311,8 +426,10 @@ sqlite3* open_database(char const* connstring, int flags, bool initialize)
 
 			// table: recording
 			//
-			// deviceid(pk) | data
-			///execute_non_query(instance, "create table if not exists recording(deviceid text primary key not null, data text)");
+			// recordingid(pk) | title | episodename | seriesnumber | episodenumber | year | streamurl | directory | plot | channelname | recordingtime | duration
+			execute_non_query(instance, "create table if not exists recording(recordingid text primary key not null, "
+				"title text, episodename text, seriesnumber int, episodenumber int, year int, streamurl text, directory text, "
+				"plot text, channelname text, recordingtime int, duration int)");
 		}
 	}
 

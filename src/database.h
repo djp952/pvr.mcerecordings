@@ -52,9 +52,9 @@ struct recording {
 	int					episodenumber;
 	int					year;
 	char const*			streamurl;
+	char const*			directory;
 	char const*			plot;
 	char const*			channelname;
-	char const*			thumbnailpath;
 	time_t				recordingtime;
 	int					duration;
 };
@@ -156,13 +156,13 @@ void close_database(sqlite3* instance);
 // delete_recording
 //
 // Deletes a recording from the database instance
-void delete_recording(sqlite3* instance, addoncallbacks const& callbacks, char const* recordingid);
+void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char const* recordingid);
 
 // discover_recordings
 //
 // Reloads the information about the available recordings
-void discover_recordings(sqlite3* instance, addoncallbacks const& callbacks, scalar_condition<bool> const& cancel);
-void discover_recordings(sqlite3* instance, addoncallbacks const& callbacks, scalar_condition<bool> const& cancel, bool& changed);
+void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel);
+void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed);
 
 // enumerate_recordings
 //

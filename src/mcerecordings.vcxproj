@@ -5,9 +5,17 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -24,7 +32,20 @@
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
@@ -39,7 +60,13 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -47,13 +74,25 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)out\$(Platform)\$(Configuration)\</OutDir>
     <TargetName>$(RootNamespace)</TargetName>
-    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir>$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)out\$(Platform)\$(Configuration)\</OutDir>
+    <TargetName>$(RootNamespace)</TargetName>
+    <IntDir>$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)out\$(Platform)\$(Configuration)\</OutDir>
     <TargetName>$(RootNamespace)</TargetName>
-    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir>$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)out\$(Platform)\$(Configuration)\</OutDir>
+    <TargetName>$(RootNamespace)</TargetName>
+    <IntDir>$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -74,8 +113,31 @@
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
-      <Command>copy $(TargetDir)$(TargetName).dll "C:\Users\micha\AppData\Roaming\Kodi\addons\pvr.mcerecordings" /y
-copy $(TargetDir)$(TargetName).pdb "C:\Users\micha\AppData\Roaming\Kodi\addons\pvr.mcerecordings" /y</Command>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)depends\kodi-addon-dev-kit\kodi;$(SolutionDir)depends\sqlite;$(SolutionDir)tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shlwapi.lib;pathcch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PreBuildEvent />
+    <PostBuildEvent />
+    <PostBuildEvent />
+    <PostBuildEvent />
+    <PostBuildEvent>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -101,8 +163,35 @@ copy $(TargetDir)$(TargetName).pdb "C:\Users\micha\AppData\Roaming\Kodi\addons\p
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
-      <Command>copy $(TargetDir)$(TargetName).dll "C:\Users\micha\AppData\Roaming\Kodi\addons\pvr.mcerecordings" /y
-copy $(TargetDir)$(TargetName).pdb "C:\Users\micha\AppData\Roaming\Kodi\addons\pvr.mcerecordings" /y</Command>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)depends\kodi-addon-dev-kit\kodi;$(SolutionDir)depends\sqlite;$(SolutionDir)tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shlwapi.lib;pathcch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PreBuildEvent />
+    <PostBuildEvent />
+    <PostBuildEvent />
+    <PostBuildEvent />
+    <PostBuildEvent>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -124,9 +213,13 @@ copy $(TargetDir)$(TargetName).pdb "C:\Users\micha\AppData\Roaming\Kodi\addons\p
   <ItemGroup>
     <ClCompile Include="..\depends\sqlite\sqlite3.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">SQLITE_THREADSAFE=2;SQLITE_TEMP_STORE=3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">SQLITE_THREADSAFE=2;SQLITE_TEMP_STORE=3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">SQLITE_THREADSAFE=2;SQLITE_TEMP_STORE=3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">SQLITE_THREADSAFE=2;SQLITE_TEMP_STORE=3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="addoncallbacks.cpp" />
     <ClCompile Include="compat\dlfcn.cpp" />
@@ -137,7 +230,9 @@ copy $(TargetDir)$(TargetName).pdb "C:\Users\micha\AppData\Roaming\Kodi\addons\p
     <ClCompile Include="sqlite_exception.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -147,14 +242,26 @@ copy $(TargetDir)$(TargetName).pdb "C:\Users\micha\AppData\Roaming\Kodi\addons\p
 "$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!linux -a !!dllname!zuki.pvr.mcerecordings.so -a "!!changelogtxt!$(SolutionDir)\pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-linux.xml" "%(FullPath)"
 "$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!android -a !!dllname!libmcerecordings.so -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-android.xml" "%(FullPath)"
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!windx -a !!dllname!zuki.pvr.mcerecordings.dll -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-windows.xml" "%(FullPath)"
+"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!linux -a !!dllname!zuki.pvr.mcerecordings.so -a "!!changelogtxt!$(SolutionDir)\pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-linux.xml" "%(FullPath)"
+"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!android -a !!dllname!libmcerecordings.so -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-android.xml" "%(FullPath)"
+</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)tmp\addon-windows.xml;$(SolutionDir)tmp\addon-linux.xml;$(SolutionDir)tmp\addon-android.xml;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)tmp\addon-windows.xml;$(SolutionDir)tmp\addon-linux.xml;$(SolutionDir)tmp\addon-android.xml;%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!windx -a !!dllname!zuki.pvr.mcerecordings.dll -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-windows.xml" "%(FullPath)"
 "$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!linux -a !!dllname!zuki.pvr.mcerecordings.so -a "!!changelogtxt!$(SolutionDir)\pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-linux.xml" "%(FullPath)"
 "$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!android -a !!dllname!libmcerecordings.so -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-android.xml" "%(FullPath)"
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!windx -a !!dllname!zuki.pvr.mcerecordings.dll -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-windows.xml" "%(FullPath)"
+"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!linux -a !!dllname!zuki.pvr.mcerecordings.so -a "!!changelogtxt!$(SolutionDir)\pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-linux.xml" "%(FullPath)"
+"$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\TextTransform.exe" -a !!platform!android -a !!dllname!libmcerecordings.so -a "!!changelogtxt!$(SolutionDir)pvr.mcerecordings\changelog.txt" -a "!!versiontxt!$(SolutionDir)tmp\version\version.txt" -out "$(SolutionDir)tmp\addon-android.xml" "%(FullPath)"
+</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)tmp\addon-windows.xml;$(SolutionDir)tmp\addon-linux.xml;$(SolutionDir)tmp\addon-android.xml;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)tmp\addon-windows.xml;$(SolutionDir)tmp\addon-linux.xml;$(SolutionDir)tmp\addon-android.xml;%(Outputs)</Outputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Generating addon.xml files</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating addon.xml files</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Generating addon.xml files</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating addon.xml files</Message>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>

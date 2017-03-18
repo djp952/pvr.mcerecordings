@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<zip>
+  <file path="pvr.mcerecordings\addon.xml" source="tmp\addon-windows.xml" normalize="windows"/>
+  <file path="pvr.mcerecordings\LICENSE.txt" source="LICENSE" normalize="windows"/>
+  <file path="pvr.mcerecordings\zuki.pvr.mcerecordings.dll" source="out\x64\Release\zuki.pvr.mcerecordings.dll"/>
+  <file path="pvr.mcerecordings\resources\icon.png" source="pvr.mcerecordings\resources\icon.png"/>
+  <file path="pvr.mcerecordings\resources\settings.xml" source="pvr.mcerecordings\resources\settings.xml" normalize="windows"/>
+  <file path="pvr.mcerecordings\resources\language\resource.language.en_gb\strings.po" source="pvr.mcerecordings\resources\language\resource.language.en_gb\strings.po" normalize="windows"/>
+</zip>

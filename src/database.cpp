@@ -264,28 +264,144 @@ void close_database(sqlite3* instance)
 
 void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char const* recordingid)
 {
-	UNREFERENCED_PARAMETER(callbacks);
-	UNREFERENCED_PARAMETER(recordingid);
-	
-	if((instance == nullptr) || (recordingid == nullptr)) return;
+	if((instance == nullptr) || (callbacks == nullptr) || (recordingid == nullptr)) return;
+
+	// TODO: Implement me
 }
 
-//---------------------------------------------------------------------------
-// discover_recordings
-//
-// Reloads the information about the available recordings
-//
-// Arguments:
-//
-//	instance	- SQLite database instance
-//	callbacks	- addoncallbacks instance
-//	folder		- Location of the recorded TV files
-//	cancel		- Condition variable used to cancel the operation
-
-void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel)
+// todo: move me
+void load_discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel)
 {
-	bool ignored;
-	return discover_recordings(instance, callbacks, folder, cancel, ignored);
+	sqlite3_stmt*				statement;			// SQL statement to execute
+	VFSDirEntry*				files;				// Enumerated files in the directory
+	unsigned int				numfiles;			// Number of files enumerated in the directory
+	int							result;				// Result from SQLite function
+	HRESULT						hresult;			// Result from COM/OLE function call
+
+	if(instance == nullptr) throw std::invalid_argument("instance");
+	if(callbacks == nullptr) throw std::invalid_argument("callbacks");
+
+	// If the folder name is null or empty, there is nothing to discover; leave the temp table empty
+	if((folder == nullptr) || (*folder == '\0')) return;
+
+	// recordingid | title | episodename | seriesnumber | episodenumber | year | streamurl | directory | plot | channelname | recordingtime | duration
+	auto sql = "insert into discover_recording values(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)";
+
+	result = sqlite3_prepare_v2(instance, sql, -1, &statement, nullptr);
+	if(result != SQLITE_OK) throw sqlite_exception(result, sqlite3_errmsg(instance));
+
+	try {
+
+		// Attempt to get a list of all the .wtv files in the target directory
+		if(!callbacks->GetDirectory(folder, ".wtv", &files, &numfiles)) throw string_exception(__func__, ": cannot enumerate the contents of folder ", folder);
+
+		try {
+
+			// Iterate over each .wtv file in the target directory to load the metadata
+			for(unsigned int index = 0; index < numfiles; index++) {
+
+				IShellItem2*		shellitem = nullptr;			// IShellItem2 instance pointer
+				IPropertyStore*		store = nullptr;				// IPropertyStore instance pointer
+
+				// If the current file entry is a folder, skip it -- this isn't recursive
+				if(files[index].folder) continue;
+
+				// Check if the operation should be cancelled prior to loading the next file
+				if(cancel.test(true)) throw string_exception(__func__, ": operation cancelled");
+
+				try {
+
+					// Convert smb:// paths into unc paths; won't affect local paths (like "D:\")
+					std::string filepath = smb_to_unc(files[index].path);
+					std::wstring widepath = to_wstring(filepath.data(), filepath.size());
+
+					// Create an IShellItem2 instance from the current path (UTF-16)
+					hresult = SHCreateItemFromParsingName(widepath.c_str(), nullptr, IID_IShellItem2, reinterpret_cast<void**>(&shellitem));
+					if(FAILED(hresult)) throw string_exception("SHCreateItemFromParsingName() failed");
+
+					// Query for the GPS_DEFAULT IPropertyStore instance; always done with IShellItem2 afterwards
+					hresult = shellitem->GetPropertyStore(GETPROPERTYSTOREFLAGS::GPS_DEFAULT, IID_IPropertyStore, reinterpret_cast<void**>(&store));
+					shellitem->Release();
+					if(FAILED(hresult)) throw string_exception("shellitem->GetPropertyStore() failed");
+
+					try {
+
+						// recordingid
+						sqlite3_bind_text(statement, 1, files[index].path, -1, SQLITE_STATIC);
+
+						// title
+						std::wstring title = get_lpwstr(store, PKEY_Title);
+						sqlite3_bind_text16(statement, 2, title.c_str(), -1, SQLITE_STATIC);
+					
+						// episodename
+						std::wstring episodename = get_lpwstr(store, PKEY_RecordedTV_EpisodeName);
+						sqlite3_bind_text16(statement, 3, episodename.c_str(), -1, SQLITE_STATIC);
+
+						// seriesnumber
+						sqlite3_bind_int(statement, 4, static_cast<int>(get_ui4(store, PKEY_Media_SeasonNumber)));
+
+						// episodenumber
+						sqlite3_bind_int(statement, 5, static_cast<int>(get_ui4(store, PKEY_Media_EpisodeNumber)));
+
+						// year
+						FILETIME originalbroadcastdate = get_filetime(store, PKEY_RecordedTV_OriginalBroadcastDate);
+						SYSTEMTIME storiginalbroadcastdate;
+						FileTimeToSystemTime(&originalbroadcastdate, &storiginalbroadcastdate);
+						sqlite3_bind_int(statement, 6, static_cast<int>(storiginalbroadcastdate.wYear));
+
+						// streamurl
+						sqlite3_bind_text(statement, 7, files[index].path, -1, SQLITE_STATIC);
+
+						// directory
+						sqlite3_bind_text16(statement, 8, title.c_str(), -1, SQLITE_STATIC);
+
+						// plot
+						std::wstring programdescription = get_lpwstr(store, PKEY_RecordedTV_ProgramDescription);
+						sqlite3_bind_text16(statement, 9, programdescription.c_str(), -1, SQLITE_STATIC);
+
+						// channelname
+						std::wstring stationname = get_lpwstr(store, PKEY_RecordedTV_StationName);
+						sqlite3_bind_text16(statement, 10, stationname.c_str(), -1, SQLITE_STATIC);
+
+						// recordingTime
+						FILETIME recordingtime = get_filetime(store, PKEY_RecordedTV_RecordingTime);
+						ULARGE_INTEGER ulrectime = { recordingtime.dwLowDateTime, recordingtime.dwHighDateTime };
+						sqlite3_bind_int(statement, 11, static_cast<int>(ulrectime.QuadPart / 10000000ULL - 11644473600ULL));
+
+						// duration
+						uint64_t duration = get_ui8(store, PKEY_Media_Duration);
+						sqlite3_bind_int(statement, 12, static_cast<int>(duration / 10000000));
+
+						// This is a non-query, it's not expected to return any rows
+						result = sqlite3_step(statement);
+						if(result != SQLITE_DONE) throw string_exception("non-query failed or returned an unexpected result set");
+
+						store->Release();							// Release IPropertyStore
+					}
+
+					catch(...) { store->Release(); throw; }
+				}
+				
+				catch(std::exception& ex) {
+
+					// Log an error message if any one file fails to process, but keep going ...
+					std::string message = std::string("Unable to process file ") + files[index].path + ": " + ex.what();
+					callbacks->Log(addoncallbacks::addon_log_t::LOG_ERROR, message.c_str());
+				}
+
+				// Reset the prepared statement so that it can be executed again
+				result = sqlite3_reset(statement);
+				if(result != SQLITE_OK) throw sqlite_exception(result);
+			}
+
+			// Release the file listing returned via callbacks->GetDirectory()
+			callbacks->FreeDirectory(files, numfiles);
+		}
+
+		catch(...) { callbacks->FreeDirectory(files, numfiles); throw; }
+	}
+
+	catch(...) { sqlite3_finalize(statement); throw; }
 }
 
 //---------------------------------------------------------------------------
@@ -303,12 +419,44 @@ void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, cha
 
 void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed)
 {
-	UNREFERENCED_PARAMETER(callbacks);
-	UNREFERENCED_PARAMETER(cancel);
-	UNREFERENCED_PARAMETER(folder);
-	UNREFERENCED_PARAMETER(changed);
+	changed = false;							// Initialize [out] argument
 
 	if(instance == nullptr) throw std::invalid_argument("instance");
+	if(callbacks == nullptr) throw std::invalid_argument("callbacks");
+	
+	// Clone the recording table schema into a temporary table
+	execute_non_query(instance, "drop table if exists discover_recording");
+	execute_non_query(instance, "create temp table discover_recording as select * from recording limit 0");
+
+	try {
+
+		// Loading the discover_recording temp table is horrible; broken out into a helper function
+		load_discover_recordings(instance, callbacks, folder, cancel);
+		
+		// This requires a multi-step operation against the recording table; start a transaction
+		execute_non_query(instance, "begin immediate transaction");
+
+		try {
+
+			// Delete any entries in the main recording table that are no longer present in the data
+			if(execute_non_query(instance, "delete from recording where recordingid not in (select recordingid from discover_recording)") > 0) changed = true;
+
+			// Insert/replace entries in the main recording table that are new or different
+			if(execute_non_query(instance, "replace into recording select discover_recording.* from discover_recording") > 0) changed = true;
+
+			// Commit the database transaction
+			execute_non_query(instance, "commit transaction");
+		}
+		
+		// Rollback the transaction on any exception
+		catch(...) { try_execute_non_query(instance, "rollback transaction"); throw; }
+
+		// Drop the temporary table
+		execute_non_query(instance, "drop table discover_recording");
+	}
+
+	// Drop the temporary table on any exception
+	catch(...) { execute_non_query(instance, "drop table discover_recording"); throw; }
 }
 
 //---------------------------------------------------------------------------
@@ -323,8 +471,44 @@ void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, cha
 
 void enumerate_recordings(sqlite3* instance, enumerate_recordings_callback callback)
 {
-	UNREFERENCED_PARAMETER(instance);
-	UNREFERENCED_PARAMETER(callback);
+	sqlite3_stmt*				statement;			// SQL statement to execute
+	int							result;				// Result from SQLite function
+	
+	if((instance == nullptr) || (callback == nullptr)) return;
+
+	// recordingid | title | episodename | seriesnumber | episodenumber | year | streamurl | directory | plot | channelname | recordingtime | duration
+	auto sql = "select recordingid, title, episodename, seriesnumber, episodenumber, year, streamurl, directory, plot, "
+		"channelname, recordingtime, duration from recording";
+
+	result = sqlite3_prepare_v2(instance, sql, -1, &statement, nullptr);
+	if(result != SQLITE_OK) throw sqlite_exception(result, sqlite3_errmsg(instance));
+
+	try {
+
+		// Execute the query and iterate over all returned rows
+		while(sqlite3_step(statement) == SQLITE_ROW) {
+
+			struct recording item;
+			item.recordingid = reinterpret_cast<char const*>(sqlite3_column_text(statement, 0));
+			item.title = reinterpret_cast<char const*>(sqlite3_column_text(statement, 1));
+			item.episodename = reinterpret_cast<char const*>(sqlite3_column_text(statement, 2));
+			item.seriesnumber = sqlite3_column_int(statement, 3);
+			item.episodenumber = sqlite3_column_int(statement, 4);
+			item.year = sqlite3_column_int(statement, 5);
+			item.streamurl = reinterpret_cast<char const*>(sqlite3_column_text(statement, 6));
+			item.directory = reinterpret_cast<char const*>(sqlite3_column_text(statement, 7));
+			item.plot = reinterpret_cast<char const*>(sqlite3_column_text(statement, 8));
+			item.channelname = reinterpret_cast<char const*>(sqlite3_column_text(statement, 9));
+			item.recordingtime = sqlite3_column_int(statement, 10);
+			item.duration = sqlite3_column_int(statement, 11);
+
+			callback(item);						// Invoke caller-supplied callback
+		}
+	
+		sqlite3_finalize(statement);			// Finalize the SQLite statement
+	}
+
+	catch(...) { sqlite3_finalize(statement); throw; }
 }
 
 //---------------------------------------------------------------------------

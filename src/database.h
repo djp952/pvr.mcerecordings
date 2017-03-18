@@ -161,13 +161,17 @@ void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char c
 // discover_recordings
 //
 // Reloads the information about the available recordings
-void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel);
 void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed);
 
 // enumerate_recordings
 //
 // Enumerates the available recordings
 void enumerate_recordings(sqlite3* instance, enumerate_recordings_callback callback);
+
+// execute_non_query
+//
+// executes a non-query against the database
+int execute_non_query(sqlite3* instance, char const* sql);
 
 // get_recording_count
 //

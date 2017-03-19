@@ -2,7 +2,7 @@
 <settings>
 
   <category label="30000">
-    <setting id="recordedtv_folder" type="folder" label="30100" source="auto" />
+    <setting id="recordedtv_folder" type="folder" label="30100" source="auto" option="writeable"/>
   </category>
 
 </settings>

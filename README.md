@@ -6,7 +6,6 @@ Copyright (C)2017 Michael G. Brehm
 [MIT LICENSE](https://opensource.org/licenses/MIT)   
    
 **BUILD ENVIRONMENT**  
-* Windows 10 x64 15025   
 * Visual Studio 2015 (with Git for Windows)   
    
 **BUILD**   
@@ -17,5 +16,6 @@ cd pvr.mcerecordings
 git submodule update --init
 msbuild msbuild.proj
 
-> out\zuki.pvr.mcerecordings-win32-krypton-x.x.x.x.zip (windows-Win32)
+> out\zuki.pvr.mcerecordings-windows-win32-krypton-x.x.x.x.zip (windows-Win32)
+> out\zuki.pvr.mcerecordings-windows-x64-krypton-x.x.x.x.zip (windows-Win32)
 ```

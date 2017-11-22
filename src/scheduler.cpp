@@ -146,6 +146,7 @@ void scheduler::start(void)
 	std::unique_lock<std::mutex> lock(m_worker_lock);
 
 	if(m_worker.joinable()) return;		// Already running
+	m_stop = false;						// Reset the stop signal
 
 	// Define a scalar_condition for the worker to signal when it's running
 	scalar_condition<bool> started{false};
@@ -155,9 +156,9 @@ void scheduler::start(void)
 	
 		started = true;			// Indicate that the thread started
 
-		// Poll the priority queue once per second to acquire a new task or
+		// Poll the priority queue once per 500ms to acquire a new task or
 		// break when the stop signal has been set
-		while(!m_stop.wait_until_equals(true, 1000)) {
+		while(!m_stop.wait_until_equals(true, 500)) {
 
 			std::unique_lock<std::mutex> lock(m_queue_lock);
 			if(m_queue.empty() || m_paused) continue;
@@ -179,8 +180,6 @@ void scheduler::start(void)
 				catch(...) { if(m_handler) m_handler(string_exception("unhandled exception during task execution")); }
 			}
 		}
-
-		m_stop = false;					// Reset the stop flag
 	});
 
 	// Wait for the worker thread to start or die trying

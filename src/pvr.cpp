@@ -28,12 +28,14 @@
 #include <sstream>
 #include <vector>
 
-#include <version.h>
+#include <xbmc_addon_dll.h>
 #include <xbmc_pvr_dll.h>
+#include <version.h>
 
-#include "addoncallbacks.h"
+#include <libXBMC_addon.h>
+#include <libXBMC_pvr.h>
+
 #include "database.h"
-#include "pvrcallbacks.h"
 #include "scheduler.h"
 #include "scalar_condition.h"
 #include "string_exception.h"
@@ -56,7 +58,7 @@ template<typename _result> static _result handle_stdexception(char const* functi
 template<typename... _args> static void log_debug(_args&&... args);
 template<typename... _args> static void log_error(_args&&... args);
 template<typename... _args> static void log_info(_args&&... args);
-template<typename... _args>	static void log_message(addoncallbacks::addon_log_t level, _args&&... args);
+template<typename... _args>	static void log_message(ADDON::addon_log_t level, _args&&... args);
 template<typename... _args> static void log_notice(_args&&... args);
 
 // Scheduled Tasks
@@ -83,28 +85,35 @@ struct addon_settings {
 
 // g_addon
 //
-// Kodi add-on callback implementation
-static std::unique_ptr<addoncallbacks> g_addon;
+// Kodi add-on callbacks
+static std::unique_ptr<ADDON::CHelper_libXBMC_addon> g_addon;
 
 // g_capabilities (const)
 //
 // PVR implementation capability flags
 static const PVR_ADDON_CAPABILITIES g_capabilities = {
 
-	false,		// bSupportsEPG
-	false,		// bSupportsTV
-	false,		// bSupportsRadio
-	true,		// bSupportsRecordings
-	false,		// bSupportsRecordingsUndelete
-	false,		// bSupportsTimers
-	false,		// bSupportsChannelGroups
-	false,		// bSupportsChannelScan
-	false,		// bSupportsChannelSettings
-	false,		// bHandlesInputStream
-	false,		// bHandlesDemuxing
-	false,		// bSupportsRecordingPlayCount
-	false,		// bSupportsLastPlayedPosition
-	false,		// bSupportsRecordingEdl
+	false,			// bSupportsEPG
+	false,			// bSupportsEPGEdl
+	false,			// bSupportsTV
+	false,			// bSupportsRadio
+	true,			// bSupportsRecordings
+	false,			// bSupportsRecordingsUndelete
+	false,			// bSupportsTimers
+	false,			// bSupportsChannelGroups
+	false,			// bSupportsChannelScan
+	false,			// bSupportsChannelSettings
+	false,			// bHandlesInputStream
+	false,			// bHandlesDemuxing
+	false,			// bSupportsRecordingPlayCount
+	false,			// bSupportsLastPlayedPosition
+	false,			// bSupportsRecordingEdl
+	false,			// bSupportsRecordingsRename
+	false,			// bSupportsRecordingsLifetimeChange
+	false,			// bSupportsDescrambleInfo
+	0,				// iRecordingsLifetimesSize
+	{ { 0, "" } },	// recordingsLifetimeValues
+	false,			// bSupportsAsyncEPGTransfer
 };
 
 // g_connpool
@@ -114,8 +123,8 @@ static std::shared_ptr<connectionpool> g_connpool;
 
 // g_pvr
 //
-// Kodi PVR add-on callback implementation
-static std::unique_ptr<pvrcallbacks> g_pvr;
+// Kodi PVR add-on callbacks
+static std::unique_ptr<CHelper_libXBMC_pvr> g_pvr;
 
 // g_scheduler
 //
@@ -157,7 +166,7 @@ static void discover_recordings_task(const scalar_condition<bool>& cancel)
 		connectionpool::handle dbhandle(g_connpool);
 
 		// Discover the recordings available in the recordedtv_folder
-		discover_recordings(dbhandle, g_addon.get(), recordedtv_folder.c_str(), cancel, changed);
+		discover_recordings(dbhandle, g_addon, recordedtv_folder.c_str(), cancel, changed);
 		
 		if(changed) {
 
@@ -215,7 +224,7 @@ static _result handle_stdexception(char const* function, std::exception const& e
 template<typename... _args>
 static void log_debug(_args&&... args)
 {
-	log_message(addoncallbacks::addon_log_t::LOG_DEBUG, std::forward<_args>(args)...);
+	log_message(ADDON::addon_log_t::LOG_DEBUG, std::forward<_args>(args)...);
 }
 
 // log_error
@@ -224,7 +233,7 @@ static void log_debug(_args&&... args)
 template<typename... _args>
 static void log_error(_args&&... args)
 {
-	log_message(addoncallbacks::addon_log_t::LOG_ERROR, std::forward<_args>(args)...);
+	log_message(ADDON::addon_log_t::LOG_ERROR, std::forward<_args>(args)...);
 }
 
 // log_info
@@ -233,14 +242,14 @@ static void log_error(_args&&... args)
 template<typename... _args>
 static void log_info(_args&&... args)
 {
-	log_message(addoncallbacks::addon_log_t::LOG_INFO, std::forward<_args>(args)...);
+	log_message(ADDON::addon_log_t::LOG_INFO, std::forward<_args>(args)...);
 }
 
 // log_message
 //
 // Variadic method of writing an entry into the Kodi application log
 template<typename... _args>
-static void log_message(addoncallbacks::addon_log_t level, _args&&... args)
+static void log_message(ADDON::addon_log_t level, _args&&... args)
 {
 	std::ostringstream stream;
 	int unpack[] = {0, ( static_cast<void>(stream << args), 0 ) ... };
@@ -249,7 +258,7 @@ static void log_message(addoncallbacks::addon_log_t level, _args&&... args)
 	if(g_addon) g_addon->Log(level, stream.str().c_str());
 
 	// Write LOG_ERROR level messages to an appropriate secondary log mechanism
-	if(level == addoncallbacks::addon_log_t::LOG_ERROR) {
+	if(level == ADDON::addon_log_t::LOG_ERROR) {
 
 		std::string message = "ERROR: " + stream.str() + "\r\n";
 		OutputDebugStringA(message.c_str());
@@ -262,7 +271,7 @@ static void log_message(addoncallbacks::addon_log_t level, _args&&... args)
 template<typename... _args>
 static void log_notice(_args&&... args)
 {
-	log_message(addoncallbacks::addon_log_t::LOG_NOTICE, std::forward<_args>(args)...);
+	log_message(ADDON::addon_log_t::LOG_NOTICE, std::forward<_args>(args)...);
 }
 
 //---------------------------------------------------------------------------
@@ -290,8 +299,9 @@ ADDON_STATUS ADDON_Create(void* handle, void* props)
 
 	try {
 		
-		// Create the global addoncallbacks instance
-		g_addon = std::make_unique<addoncallbacks>(handle);
+		// Create the global addon callbacks instance
+		g_addon.reset(new ADDON::CHelper_libXBMC_addon());
+		if(!g_addon->RegisterMe(handle)) throw string_exception("Failed to register addon handle (CHelper_libXBMC_addon::RegisterMe)");
 
 		// Throw a banner out to the Kodi log indicating that the add-on is being loaded
 		log_notice(VERSION_PRODUCTNAME_ANSI, " v", VERSION_VERSION3_ANSI, " loading");
@@ -310,7 +320,8 @@ ADDON_STATUS ADDON_Create(void* handle, void* props)
 			if(g_addon->GetSetting("recordedtv_folder", strvalue)) g_settings.recordedtv_folder = strvalue;
 
 			// Create the global pvrcallbacks instance
-			g_pvr = std::make_unique<pvrcallbacks>(handle); 
+			g_pvr.reset(new CHelper_libXBMC_pvr());
+			if(!g_pvr->RegisterMe(handle)) throw string_exception("Failed to register pvr addon handle (CHelper_libXBMC_pvr::RegisterMe)");
 		
 			try {
 
@@ -351,20 +362,6 @@ ADDON_STATUS ADDON_Create(void* handle, void* props)
 }
 
 //---------------------------------------------------------------------------
-// ADDON_Stop
-//
-// Instructs the addon to stop all activities
-//
-// Arguments:
-//
-//	NONE
-
-void ADDON_Stop(void)
-{
-	g_scheduler.stop();				// Stop the task scheduler
-}
-
-//---------------------------------------------------------------------------
 // ADDON_Destroy
 //
 // Destroys the Kodi addon instance
@@ -384,7 +381,10 @@ void ADDON_Destroy(void)
 	// Destroy all the dynamically created objects
 	g_connpool.reset();
 	g_pvr.reset(nullptr);
-	g_addon.reset(nullptr);
+	
+	// Send a notice out to the Kodi log as late as possible and destroy the addon callbacks
+	log_notice(__func__, ": ", VERSION_PRODUCTNAME_ANSI, " v", VERSION_VERSION3_ANSI, " unloaded");
+	g_addon.reset();
 }
 
 //---------------------------------------------------------------------------
@@ -399,34 +399,6 @@ void ADDON_Destroy(void)
 ADDON_STATUS ADDON_GetStatus(void)
 {
 	return ADDON_STATUS::ADDON_STATUS_OK;
-}
-
-//---------------------------------------------------------------------------
-// ADDON_HasSettings
-//
-// Indicates if the Kodi addon has settings or not
-//
-// Arguments:
-//
-//	NONE
-
-bool ADDON_HasSettings(void)
-{
-	return true;
-}
-
-//---------------------------------------------------------------------------
-// ADDON_GetSettings
-//
-// Acquires the information about the Kodi addon settings
-//
-// Arguments:
-//
-//	settings		- Structure to receive the addon settings
-
-unsigned int ADDON_GetSettings(ADDON_StructSetting*** /*settings*/)
-{
-	return 0;
 }
 
 //---------------------------------------------------------------------------
@@ -464,77 +436,8 @@ ADDON_STATUS ADDON_SetSetting(char const* name, void const* value)
 }
 
 //---------------------------------------------------------------------------
-// ADDON_FreeSettings
-//
-// Releases settings allocated by ADDON_GetSettings
-//
-// Arguments:
-//
-//	NONE
-
-void ADDON_FreeSettings(void)
-{
-}
-
-//---------------------------------------------------------------------------
 // KODI PVR ADDON ENTRY POINTS
 //---------------------------------------------------------------------------
-
-//---------------------------------------------------------------------------
-// GetPVRAPIVersion
-//
-// Get the XBMC_PVR_API_VERSION that was used to compile this add-on
-//
-// Arguments:
-//
-//	NONE
-
-char const* GetPVRAPIVersion(void)
-{
-	return XBMC_PVR_API_VERSION;
-}
-
-//---------------------------------------------------------------------------
-// GetMininumPVRAPIVersion
-//
-// Get the XBMC_PVR_MIN_API_VERSION that was used to compile this add-on
-//
-// Arguments:
-//
-//	NONE
-
-char const* GetMininumPVRAPIVersion(void)
-{
-	return XBMC_PVR_MIN_API_VERSION;
-}
-
-//---------------------------------------------------------------------------
-// GetGUIAPIVersion
-//
-// Get the XBMC_GUI_API_VERSION that was used to compile this add-on
-//
-// Arguments:
-//
-//	NONE
-
-char const* GetGUIAPIVersion(void)
-{
-	return "";
-}
-
-//---------------------------------------------------------------------------
-// GetMininumGUIAPIVersion
-//
-// Get the XBMC_GUI_MIN_API_VERSION that was used to compile this add-on
-//
-// Arguments:
-//
-//	NONE
-
-char const* GetMininumGUIAPIVersion(void)
-{
-	return "";
-}
 
 //---------------------------------------------------------------------------
 // GetAddonCapabilities
@@ -640,6 +543,68 @@ PVR_ERROR CallMenuHook(PVR_MENUHOOK const& /*menuhook*/, PVR_MENUHOOK_DATA const
 PVR_ERROR GetEPGForChannel(ADDON_HANDLE /*handle*/, PVR_CHANNEL const& /*channel*/, time_t /*start*/, time_t /*end*/)
 {
 	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// IsEPGTagRecordable
+//
+// Check if the given EPG tag can be recorded
+//
+// Arguments:
+//
+//	tag			- EPG tag to be checked
+//	recordable	- Flag indicating if the EPG tag can be recorded
+
+PVR_ERROR IsEPGTagRecordable(EPG_TAG const* /*tag*/, bool* /*recordable*/)
+{
+	return PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// IsEPGTagPlayable
+//
+// Check if the given EPG tag can be played
+//
+// Arguments:
+//
+//	tag			- EPG tag to be checked
+//	playable	- Flag indicating if the EPG tag can be played
+
+PVR_ERROR IsEPGTagPlayable(EPG_TAG const* /*tag*/, bool* /*playable*/)
+{
+	return PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// GetEPGTagEdl
+//
+// Retrieve the edit decision list (EDL) of an EPG tag on the backend
+//
+// Arguments:
+//
+//	tag			- EPG tag
+//	edl			- The function has to write the EDL list into this array
+//	count		- The maximum size of the EDL, out: the actual size of the EDL
+
+PVR_ERROR GetEPGTagEdl(EPG_TAG const* /*tag*/, PVR_EDL_ENTRY /*edl*/[], int* /*count*/)
+{
+	return PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// GetEPGTagStreamProperties
+//
+// Get the stream properties for an epg tag from the backend
+//
+// Arguments:
+//
+//	tag			- EPG tag for which to retrieve the properties
+//	props		- Array in which to set the stream properties
+//	numprops	- Number of properties returned by this function
+
+PVR_ERROR GetEPGTagStreamProperties(EPG_TAG const* /*tag*/, PVR_NAMED_VALUE* /*props*/, unsigned int* /*numprops*/)
+{
+	return PVR_ERROR_NOT_IMPLEMENTED;
 }
 
 //---------------------------------------------------------------------------
@@ -758,20 +723,6 @@ PVR_ERROR RenameChannel(PVR_CHANNEL const& /*channel*/)
 }
 
 //---------------------------------------------------------------------------
-// MoveChannel
-//
-// Move a channel to another channel number on the backend
-//
-// Arguments:
-//
-//	channel		- The channel to move, containing the new channel number
-
-PVR_ERROR MoveChannel(PVR_CHANNEL const& /*channel*/)
-{
-	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
-}
-
-//---------------------------------------------------------------------------
 // OpenDialogChannelSettings
 //
 // Show the channel settings dialog, if supported by the backend
@@ -867,10 +818,6 @@ PVR_ERROR GetRecordings(ADDON_HANDLE handle, bool deleted)
 			// iYear
 			recording.iYear = item.year;
 
-			// strStreamURL (required)
-			if(item.streamurl == nullptr) return;
-			snprintf(recording.strStreamURL, std::extent<decltype(recording.strStreamURL)>::value, "%s", item.streamurl);
-
 			// strDirectory
 			if(item.title != nullptr) snprintf(recording.strDirectory, std::extent<decltype(recording.strDirectory)>::value, "%s", item.directory);
 
@@ -915,7 +862,7 @@ PVR_ERROR DeleteRecording(PVR_RECORDING const& recording)
 {
 	assert(g_addon);
 
-	try { delete_recording(connectionpool::handle(g_connpool), g_addon.get(), recording.strRecordingId); }
+	try { delete_recording(connectionpool::handle(g_connpool), g_addon, recording.strRecordingId); }
 	catch(std::exception& ex) { return handle_stdexception(__func__, ex, PVR_ERROR::PVR_ERROR_FAILED); }
 	catch(...) { return handle_generalexception(__func__, PVR_ERROR::PVR_ERROR_FAILED); }
 
@@ -960,6 +907,20 @@ PVR_ERROR DeleteAllRecordingsFromTrash()
 //	recording	- The recording to rename, containing the new name
 
 PVR_ERROR RenameRecording(PVR_RECORDING const& /*recording*/)
+{
+	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// SetRecordingLifetime
+//
+// Set the lifetime of a recording on the backend
+//
+// Arguments:
+//
+//	recording	- The recording to change the lifetime for
+
+PVR_ERROR SetRecordingLifetime(PVR_RECORDING const* /*recording*/)
 {
 	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
 }
@@ -1201,20 +1162,6 @@ long long LengthLiveStream(void)
 }
 
 //---------------------------------------------------------------------------
-// SwitchChannel
-//
-// Switch to another channel. Only to be called when a live stream has already been opened
-//
-// Arguments:
-//
-//	channel		- The channel to switch to
-
-bool SwitchChannel(PVR_CHANNEL const& /*channel*/)
-{
-	return false;
-}
-
-//---------------------------------------------------------------------------
 // SignalStatus
 //
 // Get the signal status of the stream that's currently open
@@ -1229,17 +1176,69 @@ PVR_ERROR SignalStatus(PVR_SIGNAL_STATUS& /*status*/)
 }
 
 //---------------------------------------------------------------------------
-// GetLiveStreamURL
+// GetDescrambleInfo
 //
-// Get the stream URL for a channel from the backend
+// Get the descramble information of the stream that's currently open
 //
 // Arguments:
 //
-//	channel		- The channel to get the stream URL for
+//	descrambleinfo		- Descramble information
 
-char const* GetLiveStreamURL(PVR_CHANNEL const& /*channel*/)
+PVR_ERROR GetDescrambleInfo(PVR_DESCRAMBLE_INFO* /*descrambleinfo*/)
 {
-	return nullptr;
+	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// GetChannelStreamProperties
+//
+// Gets the properties for channel streams when the input stream is not handled
+//
+// Arguments:
+//
+//	channel		- Channel to get the stream properties for
+//	props		- Array of properties to be set for the stream
+//	numprops	- Number of properties returned by this function
+
+PVR_ERROR GetChannelStreamProperties(PVR_CHANNEL const* /*channel*/, PVR_NAMED_VALUE* /*props*/, unsigned int* /*numprops*/)
+{
+	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// GetRecordingStreamProperties
+//
+// Gets the properties for recording streams when the input stream is not handled
+//
+// Arguments:
+//
+//	recording	- Recording to get the stream properties for
+//	props		- Array of properties to be set for the stream
+//	numprops	- Number of properties returned by this function
+
+PVR_ERROR GetRecordingStreamProperties(PVR_RECORDING const* recording, PVR_NAMED_VALUE* props, unsigned int* numprops)
+{
+	try {
+
+		// PVR_STREAM_PROPERTY_STREAMURL
+		snprintf(props[0].strName, std::extent<decltype(props[0].strName)>::value, PVR_STREAM_PROPERTY_STREAMURL);
+		snprintf(props[0].strValue, std::extent<decltype(props[0].strName)>::value, get_recording_stream_url(connectionpool::handle(g_connpool), recording->strRecordingId).c_str());
+
+		// PVR_STREAM_PROPERTY_MIMETYPE
+		snprintf(props[1].strName, std::extent<decltype(props[1].strName)>::value, PVR_STREAM_PROPERTY_MIMETYPE);
+		snprintf(props[1].strValue, std::extent<decltype(props[1].strName)>::value, "video/x-ms-wtv");
+
+		// PVR_STREAM_PROPERTY_ISREALTIMESTREAM
+		snprintf(props[2].strName, std::extent<decltype(props[2].strName)>::value, PVR_STREAM_PROPERTY_ISREALTIMESTREAM);
+		snprintf(props[2].strValue, std::extent<decltype(props[2].strName)>::value, "false");
+
+		*numprops = 3;
+	}
+
+	catch(std::exception& ex) { return handle_stdexception(__func__, ex, PVR_ERROR::PVR_ERROR_FAILED); }
+	catch(...) { return handle_generalexception(__func__, PVR_ERROR::PVR_ERROR_FAILED); }
+
+	return PVR_ERROR::PVR_ERROR_NO_ERROR;
 }
 
 //---------------------------------------------------------------------------
@@ -1255,6 +1254,20 @@ PVR_ERROR GetStreamProperties(PVR_STREAM_PROPERTIES* properties)
 {
 	if(properties == nullptr) return PVR_ERROR::PVR_ERROR_INVALID_PARAMETERS;
 
+	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
+}
+
+//---------------------------------------------------------------------------
+// GetStreamReadChunkSize
+//
+// Obtain the chunk size to use when reading streams
+//
+// Arguments:
+//
+//	properties	- The properties of the currently playing stream
+
+PVR_ERROR GetStreamReadChunkSize(int* /*chunksize*/)
+{
 	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -1316,21 +1329,7 @@ long long SeekRecordedStream(long long /*position*/, int /*whence*/)
 }
 
 //---------------------------------------------------------------------------
-// PositionRecordedStream
-//
-// Gets the position in the stream that's currently being read
-//
-// Arguments:
-//
-//	NONE
-
-long long PositionRecordedStream(void)
-{
-	return -1;
-}
-
-//---------------------------------------------------------------------------
-// PositionRecordedStream
+// LengthRecordedStream
 //
 // Gets the total length of the stream that's currently being read
 //
@@ -1394,20 +1393,6 @@ void DemuxFlush(void)
 DemuxPacket* DemuxRead(void)
 {
 	return nullptr;
-}
-
-//---------------------------------------------------------------------------
-// GetChannelSwitchDelay
-//
-// Gets delay to use when using switching channels for add-ons not providing an input stream
-//
-// Arguments:
-//
-//	NONE
-
-unsigned int GetChannelSwitchDelay(void)
-{
-	return 0;
 }
 
 //---------------------------------------------------------------------------
@@ -1480,48 +1465,6 @@ bool SeekTime(double /*time*/, bool /*backwards*/, double* startpts)
 
 void SetSpeed(int /*speed*/)
 {
-}
-
-//---------------------------------------------------------------------------
-// GetPlayingTime
-//
-// Get actual playing time from addon. With timeshift enabled this is different to live
-//
-// Arguments:
-//
-//	NONE
-
-time_t GetPlayingTime(void)
-{
-	return 0;
-}
-
-//---------------------------------------------------------------------------
-// GetBufferTimeStart
-//
-// Get time of oldest packet in timeshift buffer (UTC)
-//
-// Arguments:
-//
-//	NONE
-
-time_t GetBufferTimeStart(void)
-{
-	return 0;
-}
-
-//---------------------------------------------------------------------------
-// GetBufferTimeEnd
-//
-// Get time of latest packet in timeshift buffer (UTC)
-//
-// Arguments:
-//
-//	NONE
-
-time_t GetBufferTimeEnd(void)
-{
-	return 0;
 }
 
 //---------------------------------------------------------------------------
@@ -1650,6 +1593,16 @@ void OnPowerSavingActivated()
 
 void OnPowerSavingDeactivated()
 {
+}
+
+//---------------------------------------------------------------------------
+// GetStreamTimes
+//
+// Temporary function to be removed in later PVR API version
+
+PVR_ERROR GetStreamTimes(PVR_STREAM_TIMES* /*times*/)
+{
+	return PVR_ERROR::PVR_ERROR_NOT_IMPLEMENTED;
 }
 
 //---------------------------------------------------------------------------

@@ -25,7 +25,7 @@
   <PropertyGroup>
     <SolutionDir>.\</SolutionDir>
     <Configuration>Release</Configuration>
-    <KodiBaseline>krypton</KodiBaseline>
+    <KodiBaseline>leia</KodiBaseline>
   </PropertyGroup>
 
   <Target Name="Clean">

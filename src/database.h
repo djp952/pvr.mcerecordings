@@ -31,7 +31,9 @@
 #include <string>
 #include <vector>
 
-#include "addoncallbacks.h"
+#include <libXBMC_addon.h>
+#include <kodi_vfs_types.h>
+
 #include "scalar_condition.h"
 
 #pragma warning(push, 4)				// Enable maximum compiler warnings
@@ -156,12 +158,12 @@ void close_database(sqlite3* instance);
 // delete_recording
 //
 // Deletes a recording from the database instance
-void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char const* recordingid);
+void delete_recording(sqlite3* instance, std::unique_ptr<ADDON::CHelper_libXBMC_addon> const& callbacks, char const* recordingid);
 
 // discover_recordings
 //
 // Reloads the information about the available recordings
-void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed);
+void discover_recordings(sqlite3* instance, std::unique_ptr<ADDON::CHelper_libXBMC_addon> const& callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed);
 
 // enumerate_recordings
 //
@@ -177,6 +179,11 @@ int execute_non_query(sqlite3* instance, char const* sql);
 //
 // Gets the number of available recordings in the database
 int get_recording_count(sqlite3* instance);
+
+// get_recording_stream_url
+//
+// Gets the playback URL for a recording
+std::string get_recording_stream_url(sqlite3* instance, char const* recordingid);
 
 // open_database
 //

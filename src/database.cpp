@@ -47,7 +47,7 @@
 
 // FUNCTION PROTOTYPES
 //
-void load_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel);
+void load_recordings(sqlite3* instance, std::unique_ptr<ADDON::CHelper_libXBMC_addon> const& callbacks, char const* folder, scalar_condition<bool> const& cancel);
 
 //
 // HELPER FUNCTIONS
@@ -266,7 +266,7 @@ void close_database(sqlite3* instance)
 //	callbacks		- addoncallbacks instance
 //	recordingid		- Recording ID (CmdURL) of the item to delete
 
-void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char const* recordingid)
+void delete_recording(sqlite3* instance, std::unique_ptr<ADDON::CHelper_libXBMC_addon> const& callbacks, char const* recordingid)
 {
 	sqlite3_stmt*				statement;				// SQL statement to execute
 	int							result;					// Result from SQLite function
@@ -316,7 +316,7 @@ void delete_recording(sqlite3* instance, addoncallbacks const* callbacks, char c
 //	cancel		- Condition variable used to cancel the operation
 //	changed		- Flag indicating if the data has changed
 
-void discover_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed)
+void discover_recordings(sqlite3* instance, std::unique_ptr<ADDON::CHelper_libXBMC_addon> const& callbacks, char const* folder, scalar_condition<bool> const& cancel, bool& changed)
 {
 	changed = false;							// Initialize [out] argument
 
@@ -455,6 +455,50 @@ int get_recording_count(sqlite3* instance)
 }
 
 //---------------------------------------------------------------------------
+// get_recording_stream_url
+//
+// Gets the playback URL for a recording
+//
+// Arguments:
+//
+//	instance		- Database instance
+//	recordingid		- Recording identifier (command url)
+
+std::string get_recording_stream_url(sqlite3* instance, char const* recordingid)
+{
+	sqlite3_stmt*				statement;				// Database query statement
+	std::string					streamurl;				// Generated stream URL
+	int							result;					// Result from SQLite function call
+
+	if((instance == nullptr) || (recordingid == nullptr)) return streamurl;
+
+	// Prepare a scalar result query to generate a stream URL for the specified recording
+	auto sql = "select streamurl from recording where recordingid like ?1";
+
+	result = sqlite3_prepare_v2(instance, sql, -1, &statement, nullptr);
+	if(result != SQLITE_OK) throw sqlite_exception(result, sqlite3_errmsg(instance));
+
+	try {
+
+		// Bind the query parameters
+		result = sqlite3_bind_text(statement, 1, recordingid, -1, SQLITE_STATIC);
+		if(result != SQLITE_OK) throw sqlite_exception(result);
+		
+		// Execute the scalar query
+		result = sqlite3_step(statement);
+
+		// There should be a single SQLITE_ROW returned from the initial step
+		if(result == SQLITE_ROW) streamurl.assign(reinterpret_cast<char const*>(sqlite3_column_text(statement, 0)));
+		else if(result != SQLITE_DONE) throw sqlite_exception(result, sqlite3_errmsg(instance));
+
+		sqlite3_finalize(statement);
+		return streamurl;
+	}
+
+	catch(...) { sqlite3_finalize(statement); throw; }
+}
+
+//---------------------------------------------------------------------------
 // load_recordings
 //
 // Loads the available MCE recordings into the discover_recording table
@@ -466,7 +510,7 @@ int get_recording_count(sqlite3* instance)
 //	folder			- Location of the recorded TV files
 //	cancel			- Condition variable used to cancel the operation
 
-void load_recordings(sqlite3* instance, addoncallbacks const* callbacks, char const* folder, scalar_condition<bool> const& cancel)
+void load_recordings(sqlite3* instance, std::unique_ptr<ADDON::CHelper_libXBMC_addon> const& callbacks, char const* folder, scalar_condition<bool> const& cancel)
 {
 	sqlite3_stmt*				statement;			// SQL statement to execute
 	VFSDirEntry*				files;				// Enumerated files in the directory
@@ -499,7 +543,7 @@ void load_recordings(sqlite3* instance, addoncallbacks const* callbacks, char co
 				IShellItem2*		shellitem = nullptr;			// IShellItem2 instance pointer
 				IPropertyStore*		store = nullptr;				// IPropertyStore instance pointer
 
-																	// If the current file entry is a folder, skip it -- this isn't recursive
+				// If the current file entry is a folder, skip it -- this isn't recursive
 				if (files[index].folder) continue;
 
 				// Check if the operation should be cancelled prior to loading the next file
@@ -582,7 +626,7 @@ void load_recordings(sqlite3* instance, addoncallbacks const* callbacks, char co
 
 					// Log an error message if any one file fails to process, but keep going ...
 					std::string message = std::string("Unable to process file ") + files[index].path + ": " + ex.what();
-					callbacks->Log(addoncallbacks::addon_log_t::LOG_ERROR, message.c_str());
+					callbacks->Log(ADDON::addon_log_t::LOG_ERROR, message.c_str());
 				}
 
 				// Reset the prepared statement so that it can be executed again

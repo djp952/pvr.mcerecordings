@@ -16,9 +16,6 @@
     <Filter Include="External Libraries">
       <UniqueIdentifier>{eb0262dd-4497-479f-81a3-67548f7bddf8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External Libraries\kodi-addon-dev-kit">
-      <UniqueIdentifier>{4da93225-415f-4268-bca9-e1f9caf7f267}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\compat">
       <UniqueIdentifier>{4d3c3b8b-5e05-4f27-8305-5f870daffba9}</UniqueIdentifier>
     </Filter>
@@ -37,20 +34,8 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\depends\kodi-addon-dev-kit\kodi\xbmc_addon_dll.h">
-      <Filter>External Libraries\kodi-addon-dev-kit</Filter>
-    </ClInclude>
-    <ClInclude Include="..\depends\kodi-addon-dev-kit\kodi\xbmc_pvr_dll.h">
-      <Filter>External Libraries\kodi-addon-dev-kit</Filter>
-    </ClInclude>
     <ClInclude Include="compat\dlfcn.h">
       <Filter>Header Files\compat</Filter>
-    </ClInclude>
-    <ClInclude Include="addoncallbacks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="pvrcallbacks.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="scalar_condition.h">
       <Filter>Header Files</Filter>
@@ -86,12 +71,6 @@
     </ClCompile>
     <ClCompile Include="compat\dlfcn.cpp">
       <Filter>Source Files\compat</Filter>
-    </ClCompile>
-    <ClCompile Include="addoncallbacks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="pvrcallbacks.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="scheduler.cpp">
       <Filter>Source Files</Filter>

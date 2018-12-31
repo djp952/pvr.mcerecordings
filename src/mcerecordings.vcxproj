@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -22,33 +22,33 @@
     <ProjectGuid>{5B5A17F1-4312-4A64-A796-2818CE0906B4}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>zuki.pvr.mcerecordings</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
     <ProjectName>mcerecordings</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -101,21 +101,20 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)depends\kodi-addon-dev-kit\kodi;$(SolutionDir)depends\sqlite;$(SolutionDir)tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\depends\xbmc\xbmc;$(ProjectDir)..\depends\xbmc\xbmc\platform\win32;$(ProjectDir)..\depends\xbmc\xbmc\addons\kodi-addon-dev-kit\include\kodi;$(ProjectDir)..\depends\sqlite;$(ProjectDir)..\tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>shlwapi.lib;pathcch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
     </Link>
     <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
+    <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -124,21 +123,20 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)depends\kodi-addon-dev-kit\kodi;$(SolutionDir)depends\sqlite;$(SolutionDir)tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\depends\xbmc\xbmc;$(ProjectDir)..\depends\xbmc\xbmc\platform\win32;$(ProjectDir)..\depends\xbmc\xbmc\addons\kodi-addon-dev-kit\include\kodi;$(ProjectDir)..\depends\sqlite;$(ProjectDir)..\tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>shlwapi.lib;pathcch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
     </Link>
     <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
+    <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -149,7 +147,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)depends\kodi-addon-dev-kit\kodi;$(SolutionDir)depends\sqlite;$(SolutionDir)tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\depends\xbmc\xbmc;$(ProjectDir)..\depends\xbmc\xbmc\platform\win32;$(ProjectDir)..\depends\xbmc\xbmc\addons\kodi-addon-dev-kit\include\kodi;$(ProjectDir)..\depends\sqlite;$(ProjectDir)..\tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -157,15 +155,14 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>shlwapi.lib;pathcch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
     </Link>
     <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
+    <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -176,7 +173,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)depends\kodi-addon-dev-kit\kodi;$(SolutionDir)depends\sqlite;$(SolutionDir)tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\depends\xbmc\xbmc;$(ProjectDir)..\depends\xbmc\xbmc\platform\win32;$(ProjectDir)..\depends\xbmc\xbmc\addons\kodi-addon-dev-kit\include\kodi;$(ProjectDir)..\depends\sqlite;$(ProjectDir)..\tmp\version;$(ProjectDir)compat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -184,26 +181,21 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>shlwapi.lib;pathcch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
     </Link>
     <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent />
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
+    <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\depends\kodi-addon-dev-kit\kodi\xbmc_addon_dll.h" />
-    <ClInclude Include="..\depends\kodi-addon-dev-kit\kodi\xbmc_pvr_dll.h" />
     <ClInclude Include="..\depends\sqlite\sqlite3.h" />
     <ClInclude Include="..\depends\sqlite\sqlite3ext.h" />
     <ClInclude Include="..\tmp\version\version.h" />
-    <ClInclude Include="addoncallbacks.h" />
     <ClInclude Include="compat\dlfcn.h" />
     <ClInclude Include="database.h" />
-    <ClInclude Include="pvrcallbacks.h" />
     <ClInclude Include="scalar_condition.h" />
     <ClInclude Include="scheduler.h" />
     <ClInclude Include="sqlite_exception.h" />
@@ -221,11 +213,9 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">SQLITE_THREADSAFE=2;SQLITE_TEMP_STORE=3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">SQLITE_THREADSAFE=2;SQLITE_TEMP_STORE=3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <ClCompile Include="addoncallbacks.cpp" />
     <ClCompile Include="compat\dlfcn.cpp" />
     <ClCompile Include="database.cpp" />
     <ClCompile Include="pvr.cpp" />
-    <ClCompile Include="pvrcallbacks.cpp" />
     <ClCompile Include="scheduler.cpp" />
     <ClCompile Include="sqlite_exception.cpp" />
     <ClCompile Include="stdafx.cpp">
